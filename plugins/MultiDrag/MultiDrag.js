@@ -10,7 +10,8 @@ import {
 	setRect,
 	unsetRect,
 	matrix,
-	expando
+	expando,
+	getParentOrHost,
 } from '../../src/utils.js';
 
 import dispatchEvent from '../../src/EventDispatcher.js';
@@ -19,6 +20,7 @@ let multiDragElements = [],
 	multiDragClones = [],
 	lastMultiDragSelect, // for selection with modifier key down (SHIFT)
 	multiDragSortable,
+	multiDragGroupMembers = {},
 	initialFolding = false, // Initial multi-drag fold when drag started
 	folding = false, // Folding any other time
 	dragStarted = false,
@@ -42,6 +44,13 @@ function MultiDragPlugin() {
 				on(document, 'mouseup', this._deselectMultiDrag);
 				on(document, 'touchend', this._deselectMultiDrag);
 			}
+		}
+
+		if (sortable.options.group) {
+			if (multiDragGroupMembers[sortable.options.group.name] === undefined) {
+				multiDragGroupMembers[sortable.options.group.name] = [];
+			}
+			multiDragGroupMembers[sortable.options.group.name].push(sortable);
 		}
 
 		on(document, 'keydown', this._checkKeyDown);
@@ -69,7 +78,6 @@ function MultiDragPlugin() {
 		multiDragKeyDown: false,
 		isMultiDrag: false,
 
-
 		delayStartGlobal({ dragEl: dragged }) {
 			dragEl = dragged;
 		},
@@ -84,6 +92,7 @@ function MultiDragPlugin() {
 				multiDragClones.push(clone(multiDragElements[i]));
 
 				multiDragClones[i].sortableIndex = multiDragElements[i].sortableIndex;
+				multiDragClones[i].sortableParentEl = multiDragElements[i].sortableParentEl;
 
 				multiDragClones[i].draggable = false;
 				multiDragClones[i].style['will-change'] = '';
@@ -141,6 +150,7 @@ function MultiDragPlugin() {
 
 			multiDragElements.forEach(multiDragElement => {
 				multiDragElement.sortableIndex = index(multiDragElement);
+				multiDragElement.sortableParentEl = getParentOrHost(multiDragElement);
 			});
 
 			// Sort multi-drag elements
@@ -197,8 +207,43 @@ function MultiDragPlugin() {
 			});
 		},
 
-		dragOver({ target, completed, cancel }) {
+		dragOver({ target, completed, cancel, originalEvent }) {
 			if (folding && ~multiDragElements.indexOf(target)) {
+				completed(false);
+				cancel();
+			}
+
+			const toSortable = target.parentNode[expando];
+
+			if (!toSortable || multiDragElements.length === 0) {
+				return;
+			}
+
+			let checkPut;
+
+			if (toSortable.options.group) {
+				checkPut = toSortable.options.group.checkPut;
+			}
+
+			const forbiddenMove = ~multiDragElements.findIndex((el) => {
+				if (!el.sortableParentEl) {
+					return false;
+				}
+
+				const fromSortable = el.sortableParentEl[expando];
+
+				if (fromSortable && fromSortable.options.group && !fromSortable.options.group.checkPull(toSortable, fromSortable, el, originalEvent)) {
+					return true;
+				}
+
+				if (checkPut && !checkPut(toSortable, fromSortable, el, originalEvent)) {
+					return true;
+				}
+
+				return false;
+			});
+
+			if (forbiddenMove) {
 				completed(false);
 				cancel();
 			}
@@ -468,6 +513,15 @@ function MultiDragPlugin() {
 
 			off(document, 'keydown', this._checkKeyDown);
 			off(document, 'keyup', this._checkKeyUp);
+
+			const groupMembers = multiDragGroupMembers[this.sortable.options.group];
+
+			if (groupMembers) {
+				let membersIndex;
+				if (~(membersIndex = groupMembers.indexOf(this.sortable))) {
+					multiDragGroupMembers.splice(membersIndex, 1);
+				}
+			}
 		},
 
 		_deselectMultiDrag(evt) {
@@ -476,8 +530,10 @@ function MultiDragPlugin() {
 			// Only deselect if selection is in this sortable
 			if (multiDragSortable !== this.sortable) return;
 
-			// Only deselect if target is not item in this sortable
-			if (evt && closest(evt.target, this.options.draggable, this.sortable.el, false)) return;
+			const groupSortables = findAllMembersInSortableGroup(this.sortable) || [this.sortable];
+
+			// Only deselect if target is not item in any sortable in group (including this)
+			if (evt && ~groupSortables.findIndex((sortable) => closest(evt.target, this.options.draggable, sortable.el, false))) return;
 
 			// Only deselect if left click
 			if (evt && evt.button !== 0) return;
@@ -546,6 +602,7 @@ function MultiDragPlugin() {
 			multiDragElements.forEach(multiDragElement => {
 				oldIndicies.push({
 					multiDragElement,
+					parentElement: multiDragElement.sortableParentEl,
 					index: multiDragElement.sortableIndex
 				});
 
@@ -560,9 +617,11 @@ function MultiDragPlugin() {
 				}
 				newIndicies.push({
 					multiDragElement,
+					parentElement: multiDragElement.sortableParentEl,
 					index: newIndex
 				});
 			});
+
 			return {
 				items: [...multiDragElements],
 				clones: [...multiDragClones],
@@ -616,6 +675,13 @@ function removeMultiDragElements() {
 		if (multiDragElement === dragEl) return;
 		multiDragElement.parentNode && multiDragElement.parentNode.removeChild(multiDragElement);
 	});
+}
+
+function findAllMembersInSortableGroup(sortable) {
+	if (!sortable.options.group) {
+		return null;
+	}
+	return multiDragGroupMembers[sortable.options.group.name] || [];
 }
 
 export default MultiDragPlugin;
