@@ -47,10 +47,11 @@ function MultiDragPlugin() {
 		}
 
 		if (sortable.options.group) {
-			if (multiDragGroupMembers[sortable.options.group.name] === undefined) {
-				multiDragGroupMembers[sortable.options.group.name] = [];
+			const group = typeof sortable.options.group === 'string' ? { name: sortable.options.group } : sortable.options.group;
+			if (multiDragGroupMembers[group.name] === undefined) {
+				multiDragGroupMembers[group.name] = [];
 			}
-			multiDragGroupMembers[sortable.options.group.name].push(sortable);
+			multiDragGroupMembers[group.name].push(sortable);
 		}
 
 		on(document, 'keydown', this._checkKeyDown);
@@ -145,7 +146,7 @@ function MultiDragPlugin() {
 
 		dragStartGlobal({ sortable }) {
 			if (!this.isMultiDrag && multiDragSortable) {
-				multiDragSortable.multiDrag._deselectMultiDrag();
+				MultiDrag.utils.clear();
 			}
 
 			multiDragElements.forEach(multiDragElement => {
@@ -356,7 +357,7 @@ function MultiDragPlugin() {
 			// Multi-drag selection
 			if (!dragStarted) {
 				if (options.multiDragKey && !this.multiDragKeyDown) {
-					this._deselectMultiDrag();
+					MultiDrag.utils.clear();
 				}
 				toggleClass(dragEl, options.selectedClass, !~multiDragElements.indexOf(dragEl));
 
@@ -506,7 +507,8 @@ function MultiDragPlugin() {
 		},
 
 		destroyGlobal() {
-			this._deselectMultiDrag();
+			MultiDrag.utils.clear();
+
 			off(document, 'pointerup', this._deselectMultiDrag);
 			off(document, 'mouseup', this._deselectMultiDrag);
 			off(document, 'touchend', this._deselectMultiDrag);
@@ -525,31 +527,18 @@ function MultiDragPlugin() {
 		},
 
 		_deselectMultiDrag(evt) {
-			if (typeof dragStarted !== "undefined" && dragStarted) return;
-
 			// Only deselect if selection is in this sortable
 			if (multiDragSortable !== this.sortable) return;
 
-			const groupSortables = findAllMembersInSortableGroup(this.sortable) || [this.sortable];
+			if (evt) {
+				// Only deselect if left click
+				if (evt.button !== 0) return;
 
-			// Only deselect if target is not item in any sortable in group (including this)
-			if (evt && ~groupSortables.findIndex((sortable) => closest(evt.target, this.options.draggable, sortable.el, false))) return;
-
-			// Only deselect if left click
-			if (evt && evt.button !== 0) return;
-
-			while (multiDragElements.length) {
-				let el = multiDragElements[0];
-				toggleClass(el, this.options.selectedClass, false);
-				multiDragElements.shift();
-				dispatchEvent({
-					sortable: this.sortable,
-					rootEl: this.sortable.el,
-					name: 'deselect',
-					targetEl: el,
-					originalEvent: evt
-				});
+				// Only deselect if target is not item in any sortable in group (including this)
+				if (itemElIsInSortableGroup(evt.target, this.sortable)) return;
 			}
+
+			MultiDrag.utils.clear(evt);
 		},
 
 		_checkKeyDown(evt) {
@@ -577,7 +566,9 @@ function MultiDragPlugin() {
 				let sortable = el.parentNode[expando];
 				if (!sortable || !sortable.options.multiDrag || ~multiDragElements.indexOf(el)) return;
 				if (multiDragSortable && multiDragSortable !== sortable) {
-					multiDragSortable.multiDrag._deselectMultiDrag();
+					if (!itemElIsInSortableGroup(el, multiDragSortable)) {
+						MultiDrag.utils.clear();
+					}
 					multiDragSortable = sortable;
 				}
 				toggleClass(el, sortable.options.selectedClass, true);
@@ -593,6 +584,24 @@ function MultiDragPlugin() {
 				if (!sortable || !sortable.options.multiDrag || !~index) return;
 				toggleClass(el, sortable.options.selectedClass, false);
 				multiDragElements.splice(index, 1);
+			},
+			clear(evt) {
+				if (typeof dragStarted !== "undefined" && dragStarted) return;
+
+				while (multiDragElements.length) {
+					const el = multiDragElements[0];
+					const sortableEl = getParentOrHost(el);
+					const sortable = sortableEl[expando];
+					toggleClass(el, sortable.options.selectedClass, false);
+					multiDragElements.shift();
+					dispatchEvent({
+						sortable: sortable,
+						rootEl: sortableEl,
+						name: 'deselect',
+						targetEl: el,
+						originalEvent: evt
+					});
+				}
 			}
 		},
 		eventProperties() {
@@ -682,6 +691,10 @@ function findAllMembersInSortableGroup(sortable) {
 		return null;
 	}
 	return multiDragGroupMembers[sortable.options.group.name] || [];
+}
+
+function itemElIsInSortableGroup(itemEl, sortable) {
+	return ~(findAllMembersInSortableGroup(sortable) || [sortable]).findIndex((sortable) => closest(itemEl, sortable.options.draggable, sortable.el, false));
 }
 
 export default MultiDragPlugin;
