@@ -640,11 +640,13 @@ function MultiDragPlugin() {
 		},
 		optionListeners: {
 			multiDragKey(key) {
-				key = key.toLowerCase();
-				if (key === 'ctrl') {
-					key = 'Control';
-				} else if (key.length > 1) {
-					key = key.charAt(0).toUpperCase() + key.substr(1);
+				if (typeof key === 'string') {
+					key = key.toLowerCase();
+					if (key === 'ctrl') {
+						key = 'Control';
+					} else if (key.length > 1) {
+						key = key.charAt(0).toUpperCase() + key.substr(1);
+					}
 				}
 				return key;
 			}
