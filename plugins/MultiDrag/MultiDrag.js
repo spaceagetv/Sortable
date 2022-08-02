@@ -355,10 +355,7 @@ function MultiDragPlugin() {
 				children = parentEl.children;
 
 			// Multi-drag selection
-			if (!dragStarted) {
-				if (options.multiDragKey && !this.multiDragKeyDown) {
-					MultiDrag.utils.clear();
-				}
+			if (!dragStarted && (!options.multiDragKey || this.multiDragKeyDown)) {
 				toggleClass(dragEl, options.selectedClass, !~multiDragElements.indexOf(dragEl));
 
 				if (!~multiDragElements.indexOf(dragEl)) {
