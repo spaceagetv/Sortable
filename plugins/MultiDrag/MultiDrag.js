@@ -513,12 +513,12 @@ function MultiDragPlugin() {
 			off(document, 'keydown', this._checkKeyDown);
 			off(document, 'keyup', this._checkKeyUp);
 
-			const groupMembers = multiDragGroupMembers[this.sortable.options.group.name];
+			const groupMembers = findAllMembersInSortableGroup(this.sortable);
 
 			if (groupMembers) {
 				let membersIndex;
 				if (~(membersIndex = groupMembers.indexOf(this.sortable))) {
-					multiDragGroupMembers.splice(membersIndex, 1);
+					groupMembers.splice(membersIndex, 1);
 				}
 			}
 		},
