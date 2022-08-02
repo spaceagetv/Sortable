@@ -514,7 +514,7 @@ function MultiDragPlugin() {
 			off(document, 'keydown', this._checkKeyDown);
 			off(document, 'keyup', this._checkKeyUp);
 
-			const groupMembers = multiDragGroupMembers[this.sortable.options.group];
+			const groupMembers = multiDragGroupMembers[this.sortable.options.group.name];
 
 			if (groupMembers) {
 				let membersIndex;
