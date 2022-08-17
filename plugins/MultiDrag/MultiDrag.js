@@ -212,6 +212,7 @@ function MultiDragPlugin() {
 			if (folding && ~multiDragElements.indexOf(target)) {
 				completed(false);
 				cancel();
+				return;
 			}
 
 			const toSortable = target.parentNode[expando];
