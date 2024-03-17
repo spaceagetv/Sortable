@@ -1,7 +1,7 @@
 import { getChild } from '../../src/utils.js';
 
 
-const drop = function({
+const drop = function ({
 	originalEvent,
 	putSortable,
 	dragEl,
@@ -22,24 +22,38 @@ const drop = function({
 	}
 };
 
-function Revert() {}
+function Revert() { }
 
 Revert.prototype = {
 	startIndex: null,
 	dragStart({ oldDraggableIndex }) {
 		this.startIndex = oldDraggableIndex;
 	},
-	onSpill({ dragEl, putSortable }) {
+	onSpill({ dragEl, putSortable, oldIndicies }) {
+		console.log('onSpill', oldIndicies)
 		this.sortable.captureAnimationState();
 		if (putSortable) {
 			putSortable.captureAnimationState();
 		}
-		let nextSibling = getChild(this.sortable.el, this.startIndex, this.options);
+		if (oldIndicies && oldIndicies.length) {
+			oldIndicies.forEach((c) => {
+				let nextSibling = getChild(c.parentElement, c.index, this.options)
+				if (nextSibling) {
+					c.parentElement.insertBefore(c.multiDragElement, nextSibling)
+				} else {
+					c.parentElement.appendChild(c.multiDragElement)
+				}
+			})
 
-		if (nextSibling) {
-			this.sortable.el.insertBefore(dragEl, nextSibling);
 		} else {
-			this.sortable.el.appendChild(dragEl);
+
+			let nextSibling = getChild(this.sortable.el, this.startIndex, this.options);
+
+			if (nextSibling) {
+				this.sortable.el.insertBefore(dragEl, nextSibling);
+			} else {
+				this.sortable.el.appendChild(dragEl);
+			}
 		}
 		this.sortable.animateAll();
 		if (putSortable) {
@@ -54,7 +68,7 @@ Object.assign(Revert, {
 });
 
 
-function Remove() {}
+function Remove() { }
 
 Remove.prototype = {
 	onSpill({ dragEl, putSortable }) {
