@@ -155,7 +155,7 @@ function MultiDragPlugin() {
 			});
 
 			// Sort multi-drag elements
-			multiDragElements = multiDragElements.sort(function(a, b) {
+			multiDragElements = multiDragElements.sort(function (a, b) {
 				return a.sortableIndex - b.sortableIndex;
 			});
 			dragStarted = true;
@@ -215,7 +215,7 @@ function MultiDragPlugin() {
 				return;
 			}
 
-			const toSortable = target.parentNode[expando];
+			const toSortable = target.parentNode ? target.parentNode[expando] : null;
 
 			if (!toSortable || multiDragElements.length === 0) {
 				return;
@@ -501,7 +501,7 @@ function MultiDragPlugin() {
 
 		nullingGlobal() {
 			this.isMultiDrag =
-			dragStarted = false;
+				dragStarted = false;
 			multiDragClones.length = 0;
 		},
 
